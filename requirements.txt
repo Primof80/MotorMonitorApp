@@ -1,0 +1,7 @@
+Flask
+pandas
+plotly
+numpy
+pytest
+firebase-functions
+gunicorn

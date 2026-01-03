@@ -1,0 +1,81 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Motor Vibration Overview Dashboard</title>
+    <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <style>
+        body { font-family: sans-serif; margin: 20px; background-color: #f4f4f9; color: #333; }
+        .header-container { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
+        h1 { color: #005a9c; }
+        .contact-info { text-align: right; font-size: 0.8em; color: #555; }
+        .motor-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+        .motor-card {
+            background-color: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            display: flex; flex-direction: column; text-decoration: none; color: inherit;
+            transition: transform 0.2s ease-in-out;
+        }
+        .motor-card:hover { transform: translateY(-5px); }
+        .motor-card h2 { margin: 0 0 10px 0; color: #005a9c; }
+        .motor-card p { margin: 4px 0; }
+        .status-Healthy { color: green; }
+        .status-Critical { color: red; }
+        .status-Warning { color: orange; }
+        .status-Concern { color: #cccc00; }
+        .status-Offline { color: grey; }
+        .status-on { color: green; }
+        .status-off { color: red; }
+    </style>
+</head>
+<body>
+    <div class="header-container">
+        <h1>Motor Vibration Overview Dashboard</h1>
+        <div class="contact-info">
+            In case of queries, contact:<br>
+            Przemyslaw Fira<br>
+            primof80@gmail.com<br>
+            +353 876989785
+        </div>
+    </div>
+    <div id="motor-grid" class="motor-grid"></div>
+
+    <script>
+        function fetchMotorData() {
+            fetch('/api/motors')
+                .then(response => response.json())
+                .then(motors => {
+                    const motorGrid = document.getElementById('motor-grid');
+                    motorGrid.innerHTML = ''; // Clear existing motors
+                    motors.forEach(motor => {
+                        const card = document.createElement('a');
+                        card.href = '/motor/' + motor.id;
+                        card.className = 'motor-card';
+
+                        let healthClass = 'status-' + motor.motor_health.split(' ')[0];
+
+                        card.innerHTML = `
+                            <h2>${motor.description}</h2>
+                            <p><strong>Status:</strong> <span class="${healthClass}">${motor.motor_health}</span></p>
+                            <p><strong>Running:</strong> ${motor.is_running}</p>
+                            <p><strong>Temperature:</strong> ${motor.temp}</p>
+                            <p><strong>Frequency:</strong> ${motor.dominant_freq}</p>
+                            <p><strong>Amplitude:</strong> ${motor.amplitude}</p>
+                            <p><strong>Last Update:</strong> ${motor.last_timestamp ? new Date(motor.last_timestamp).toLocaleString() : 'N/A'}</p>
+                        `;
+                        motorGrid.appendChild(card);
+                    });
+                })
+                .catch(error => console.error('Error fetching motor data:', error));
+        }
+
+        // Fetch data on page load and then every 5 seconds
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchMotorData();
+            setInterval(fetchMotorData, 5000);
+        });
+    </script>
+</body>
+</html>
