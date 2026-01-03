@@ -2,8 +2,14 @@
 # This file is the configuration for Firebase App Hosting.
 # It tells Firebase how to build and run your application.
 
+# The operating system for your application.
+operatingSystem: ubuntu22
+
 # The runtime for your application.
 runtime: python311
+
+# The commands to run to install your application's dependencies.
+install: pip install -r requirements.txt
 
 # The entrypoint for your application.
 # This command is run to start your application.
