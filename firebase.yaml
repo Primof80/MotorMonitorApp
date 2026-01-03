@@ -4,7 +4,6 @@
 
 # The runtime for your application.
 runtime: python
-stack: latest
 
 # The entrypoint for your application.
 # This command is run to start your application.
