@@ -10,3 +10,10 @@ runtime: python311
 
 # The commands to run to install your application's dependencies.
 install: pip install -r requirements.txt
+
+# The entrypoint for your application.
+# This command is run to start your application.
+# gunicorn is a production-grade server that will run your Flask app.
+# --bind=0.0.0.0:$PORT tells gunicorn to listen on all available network interfaces on the port provided by App Hosting.
+# app:app tells gunicorn to run the 'app' object from the 'app.py' file.
+entrypoint: gunicorn --bind=0.0.0.0:$PORT app:app
