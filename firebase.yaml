@@ -4,6 +4,8 @@
 
 # The runtime for your application.
 runtime: python
+env:
+  operatingSystem: ubuntu22
 
 # The entrypoint for your application.
 # This command is run to start your application.
