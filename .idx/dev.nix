@@ -1,7 +1,7 @@
 { pkgs, ... }:
 let
   # A custom Python environment with specified packages
-  pythonWithPackages = pkgs.python3.withPackages (ps: with ps; [
+  pythonWithPackages = pkgs.python311.withPackages (ps: with ps; [
     flask
     pandas
     plotly
