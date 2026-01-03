@@ -1,1 +1,30 @@
-config.py
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+*.egg-info/
+*.egg
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*.code-workspace
+
+# Firebase
+.firebase/
+
+# Logs
+*.log
+
+# Database
+*.db
+*.sqlite3
+
+# SSL
+*.pem
