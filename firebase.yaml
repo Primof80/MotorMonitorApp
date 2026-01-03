@@ -3,9 +3,7 @@
 # It tells Firebase how to build and run your application.
 
 # The runtime for your application.
-runtime: python
-env:
-  operatingSystem: ubuntu22
+runtime: python311
 
 # The entrypoint for your application.
 # This command is run to start your application.
