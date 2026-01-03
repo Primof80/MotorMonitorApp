@@ -1,5 +1,14 @@
 {
   "projects": {
     "default": "motormonitorapp-64205817"
+  },
+  "targets": {
+    "motormonitorapp-64205817": {
+      "hosting": {
+        "app": [
+          "motormonitorapp"
+        ]
+      }
+    }
   }
 }
