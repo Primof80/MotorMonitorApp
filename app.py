@@ -4,16 +4,14 @@ import pandas as pd
 import plotly.graph_objects as go
 from flask import Flask, request, jsonify, render_template, send_file, make_response, session, redirect, url_for
 from functools import wraps
-import os
-import numpy as np
 import logging
 import datetime
 
-# ---New Configuration ---
-# motor_id = request.args.get('motor_id', type=int)
+# --- Configuration ---
+from config import SECRET_KEY, DATABASE_FILE, ADMIN_USERNAME, ADMIN_PASSWORD
+
 app = Flask(__name__)
-app.secret_key = 'your_secret_key'  # Change this to a random secret key
-DB_FILE = '/tmp/motor_readings.db'
+app.secret_key = SECRET_KEY
 
 # Configure logging
 logging.basicConfig(filename='/tmp/app.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -45,7 +43,7 @@ MOTOR_DESCRIPTIONS = {
 # --- Database Functions ---
 def get_db_connection():
     # Use isolation_level=None for autocommit on writes, simplifying transaction management
-    conn = sqlite3.connect(DB_FILE)
+    conn = sqlite3.connect(DATABASE_FILE)
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -107,7 +105,7 @@ def login_required(f):
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        if request.form['username'] == 'admin' and request.form['password'] == 'password':
+        if request.form['username'] == ADMIN_USERNAME and request.form['password'] == ADMIN_PASSWORD:
             session['logged_in'] = True
             next_url = request.args.get('next')
             return redirect(next_url or url_for('users'))
@@ -234,18 +232,36 @@ def receive_data():
 # --- API ROUTES FOR AJAX REFRESH ---
 # ----------------------------------------------------
 
+def get_motor_data(motor_id, limit=10):
+    conn = get_db_connection()
+    df = pd.read_sql_query(
+        f"SELECT read_timestamp, dominant_freq, amplitude, temp FROM readings WHERE motor_id = ? ORDER BY read_timestamp DESC LIMIT {limit}",
+        conn, params=(motor_id,)
+    )
+    conn.close()
+    return df
+
+def generate_graph(df, y_col, title, y_axis_title):
+    fig = go.Figure()
+    if not df.empty and y_col in df.columns and df[y_col].notna().any():
+        df_graph = df.iloc[::-1]
+        df_graph['read_timestamp'] = pd.to_datetime(df_graph['read_timestamp']).dt.strftime('%Y-%m-%dT%H:%M:%S')
+        fig.add_trace(go.Scatter(x=df_graph['read_timestamp'], y=df_graph[y_col].fillna(0), mode='lines'))
+    
+    fig.update_layout(
+        title=title,
+        xaxis_title='Time',
+        yaxis_title=y_axis_title,
+        xaxis=dict(type='date', tickformat='%m-%d<br>%H:%M:%S')
+    )
+    return fig
+
 @app.route('/api/motors')
 @login_required
 def api_motors():
     motors = []
     for motor_id in range(1, 21): 
-        conn = get_db_connection()
-        latest = pd.read_sql_query(
-            "SELECT temp, read_timestamp, dominant_freq, amplitude FROM readings WHERE motor_id = ? ORDER BY read_timestamp DESC LIMIT 1",
-            conn, params=(motor_id,)
-        )
-        conn.close()
-        
+        latest = get_motor_data(motor_id, limit=1)
         motor_health, sensor_status, is_running_flag = compute_status(motor_id)
         
         temp = None if latest.empty else latest['temp'].iloc[0]
@@ -278,21 +294,10 @@ def api_motor_dashboard(motor_id):
     if motor_id not in MOTOR_DESCRIPTIONS.keys():
         return jsonify({"error": "Invalid motor_id"}), 400
     
-    conn = get_db_connection()
-    df_table = pd.read_sql_query(
-        "SELECT read_timestamp, dominant_freq, amplitude, temp FROM readings WHERE motor_id = ? ORDER BY read_timestamp DESC LIMIT 10",
-        conn, params=(motor_id,)
-    )
-    df_graph = pd.read_sql_query(
-        "SELECT read_timestamp, dominant_freq, amplitude, temp FROM readings WHERE motor_id = ? ORDER BY read_timestamp DESC LIMIT 500",
-        conn, params=(motor_id,)
-    )
-    latest = pd.read_sql_query(
-        "SELECT read_timestamp, temp, dominant_freq, amplitude FROM readings WHERE motor_id = ? ORDER BY read_timestamp DESC LIMIT 1",
-        conn, params=(motor_id,)
-    )
-    conn.close()
-    
+    df_table = get_motor_data(motor_id, limit=10)
+    df_graph = get_motor_data(motor_id, limit=500)
+    latest = get_motor_data(motor_id, limit=1)
+
     motor_health, sensor_status, is_running_flag = compute_status(motor_id)
     
     last_timestamp = None if latest.empty else latest['read_timestamp'].iloc[0]
@@ -300,31 +305,8 @@ def api_motor_dashboard(motor_id):
     dominant_freq = None if latest.empty else latest['dominant_freq'].iloc[0]
     amplitude = None if latest.empty else latest['amplitude'].iloc[0]
 
-    if not df_graph.empty:
-        df_graph = df_graph.iloc[::-1]
-        df_graph['read_timestamp'] = pd.to_datetime(df_graph['read_timestamp']).dt.strftime('%Y-%m-%dT%H:%M:%S')
-
-    fig_vib = go.Figure()
-    if not df_graph.empty:
-        fig_vib.add_trace(go.Scatter(x=df_graph['read_timestamp'], y=df_graph['amplitude'].fillna(0),  
-                                     mode='lines', name='Vibration Amplitude (g)'))
-    fig_vib.update_layout(
-        title=f'Vibration Amplitude (g) Trend',
-        xaxis_title='Time',
-        yaxis_title='Amplitude (g)',
-        xaxis=dict(type='date', tickformat='%m-%d<br>%H:%M:%S')
-    )
-
-    fig_temp = go.Figure()
-    if not df_graph.empty and df_graph['temp'].notna().any():
-        fig_temp.add_trace(go.Scatter(x=df_graph['read_timestamp'], y=df_graph['temp'].fillna(0),  
-                                     mode='lines', name='Temperature (°C)'))
-    fig_temp.update_layout(
-        title='Temperature (°C) Trend',
-        xaxis_title='Time',
-        yaxis_title='Temperature (°C)',
-        xaxis=dict(type='date', tickformat='%m-%d<br>%H:%M:%S')
-    )
+    fig_vib = generate_graph(df_graph, 'amplitude', 'Vibration Amplitude (g) Trend', 'Amplitude (g)')
+    fig_temp = generate_graph(df_graph, 'temp', 'Temperature (°C) Trend', 'Temperature (°C)')
     
     response_data = {
         'motor': {
@@ -375,50 +357,16 @@ def dashboard(motor_id):
     if motor_id not in MOTOR_DESCRIPTIONS.keys():
         return jsonify({"error": "Invalid motor_id"}), 400
     
-    conn = get_db_connection()
-    df_table = pd.read_sql_query(
-        "SELECT read_timestamp, dominant_freq, amplitude, temp FROM readings WHERE motor_id = ? ORDER BY read_timestamp DESC LIMIT 10",
-        conn, params=(motor_id,)
-    )
-    df_graph = pd.read_sql_query(
-        "SELECT read_timestamp, dominant_freq, amplitude, temp FROM readings WHERE motor_id = ? ORDER BY read_timestamp DESC LIMIT 500",
-        conn, params=(motor_id,)
-    )
-    latest = pd.read_sql_query(
-        "SELECT read_timestamp, temp, dominant_freq, amplitude FROM readings WHERE motor_id = ? ORDER BY read_timestamp DESC LIMIT 1",
-        conn, params=(motor_id,)
-    )
-    conn.close()
+    df_table = get_motor_data(motor_id, limit=10)
+    df_graph = get_motor_data(motor_id, limit=500)
+    latest = get_motor_data(motor_id, limit=1)
     
     motor_health, sensor_status, is_running_flag = compute_status(motor_id)
     
     last_timestamp = None if latest.empty else latest['read_timestamp'].iloc[0]
-    
-    if not df_graph.empty:
-        df_graph = df_graph.iloc[::-1]
-        df_graph['read_timestamp'] = pd.to_datetime(df_graph['read_timestamp']).dt.strftime('%Y-%m-%dT%H:%M:%S')
 
-    fig_vib = go.Figure()
-    if not df_graph.empty:
-        fig_vib.add_trace(go.Scatter(x=df_graph['read_timestamp'], y=df_graph['amplitude'].fillna(0),  
-                                     mode='lines', name='Vibration Amplitude (g)'))
-    fig_vib.update_layout(
-        title=f'Vibration Amplitude (g) Trend',
-        xaxis_title='Time',
-        yaxis_title='Amplitude (g)',
-        xaxis=dict(type='date', tickformat='%m-%d<br>%H:%M:%S')
-    )
-
-    fig_temp = go.Figure()
-    if not df_graph.empty and df_graph['temp'].notna().any():
-        fig_temp.add_trace(go.Scatter(x=df_graph['read_timestamp'], y=df_graph['temp'].fillna(0),  
-                                      mode='lines', name='Temperature (°C)'))
-    fig_temp.update_layout(
-        title='Temperature (°C) Trend',
-        xaxis_title='Time',
-        yaxis_title='Temperature (°C)',
-        xaxis=dict(type='date', tickformat='%m-%d<br>%H:%M:%S')
-    )
+    fig_vib = generate_graph(df_graph, 'amplitude', 'Vibration Amplitude (g) Trend', 'Amplitude (g)')
+    fig_temp = generate_graph(df_graph, 'temp', 'Temperature (°C) Trend', 'Temperature (°C)')
 
     response = render_template(
         'dashboard.html',
