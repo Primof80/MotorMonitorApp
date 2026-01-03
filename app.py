@@ -284,7 +284,7 @@ def api_motor_dashboard(motor_id):
         conn, params=(motor_id,)
     )
     df_graph = pd.read_sql_query(
-        "SELECT read_timestamp, dominant__freq, amplitude, temp FROM readings WHERE motor_id = ? ORDER BY read_timestamp DESC LIMIT 500",
+        "SELECT read_timestamp, dominant_freq, amplitude, temp FROM readings WHERE motor_id = ? ORDER BY read_timestamp DESC LIMIT 500",
         conn, params=(motor_id,)
     )
     latest = pd.read_sql_query(

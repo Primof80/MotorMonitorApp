@@ -16,6 +16,7 @@ in
     pythonWithPackages
     pkgs.openssl # For SSL
     pkgs.firebase-tools
+    pkgs.google-cloud-sdk # Added to get the full gcloud CLI
   ];
 
   # VS Code extensions to install
