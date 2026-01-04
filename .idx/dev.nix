@@ -7,7 +7,6 @@ let
     plotly
     numpy
     pytest
-    gunicorn # For production-ready hosting
   ]);
 in
 {
@@ -39,9 +38,8 @@ in
       previews = {
         web = {
           # Command to start the web server for the preview
-          # Gunicorn is a production-ready server that will run your Flask app
           # The $PORT environment variable is automatically assigned
-          command = ["gunicorn" "--bind" "0.0.0.0:$PORT" "app:app"];
+          command = ["flask" "run" "--host=0.0.0.0" "--port=$PORT"];
           manager = "web";
         };
       };

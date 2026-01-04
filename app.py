@@ -6,6 +6,7 @@ from flask import Flask, request, jsonify, render_template, send_file, make_resp
 from functools import wraps
 import logging
 import datetime
+import os
 
 # --- Configuration ---
 from config import SECRET_KEY, DATABASE_FILE, ADMIN_USERNAME, ADMIN_PASSWORD
@@ -90,7 +91,7 @@ def setup_database():
     conn.commit()
     conn.close()
     
-setup_database()
+# setup_database()
 
 
 # --- Authentication ---
@@ -425,3 +426,7 @@ def reset_data():
     except Exception as e:
         logging.error(f"Error resetting data for Motor {motor_id}: {e}")
         return jsonify({"error": "Failed to reset data."}), 500
+
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 8080))
+    app.run(host='0.0.0.0', port=port)
